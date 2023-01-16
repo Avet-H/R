@@ -1,0 +1,100 @@
+---
+title: "Choice-based conjoint analysis"
+author: "Avet Mnatsakanyan"
+date: '2022-12-24'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### This project presents choice-based conjoint analysis conducted for yogurt market. Respondents were asked to chose one of the 3 alternative options from 15 different combinations of yogurt product attributes. Atributes are:
+- diet      - yes/no 
+- size      - 5/6/8 ounces
+- shape     - circle/square
+- flavor    - vanilla/cherry/peach
+- price     - 4/6/9 dollar
+
+### Additional variables in dataset are:
+- resp_id - unique numerical id for each respondent
+- ques - question number asked to each respondent (1:15)
+- alt  - options presented in each question (1:3) 
+- choice - 1 for chosen, 0 for not chosen
+
+
+### The cross tabulation below shows choices for each atribute:
+
+```{r}
+rm(list=ls())
+require(mlogit)
+setwd("C:\\Users\\Avet\\Desktop\\Git\\R\\Conjoint analysis") ## directory
+
+
+yogurt = read.csv("conjoint_yogurt.csv")
+
+attach(yogurt)
+
+yogurt$size = as.factor(yogurt$size)
+yogurt$price = as.factor(yogurt$price)
+
+# cross tabulations
+xtabs(choice~ diet, data= yogurt)
+xtabs (choice ~ shp, data=yogurt)
+xtabs (choice ~ price, data=yogurt)
+xtabs (choice ~ size, data=yogurt)
+xtabs (choice ~ flav, data=yogurt)
+
+```
+### Reshape the dataset using mlogit modelling (multinomial logit model)
+```{r}
+# add a column with unique question numbers, as needed in mlogit 1.1+
+yogurt$chid <- rep(1:(nrow(yogurt)/3), each=3)
+# shape the data for mlogit
+yogurt.mlogit<- dfidx(yogurt, choice="choice", idx=list(c("chid", "resp.id"), "alt" ))
+```
+
+
+### Then run the logit model without intercept, assuming that the position of the question in the survey doesn't matter for respondents 
+
+```{r analysis, results="markup"}
+attach(yogurt.mlogit)
+
+m1 <- mlogit(choice ~ 0  + size + shp + flav + price, data = yogurt.mlogit)
+summary(m1)
+round(exp(coef(m1)),3)
+
+```
+
+### Include intercept and conduct 'lrtest' to bring an argument in favor of assumption provided above 
+
+```{r}
+m2 <- mlogit(choice ~  size +shp + flav +price , data = yogurt.mlogit)
+summary(m2)
+lrtest(m1, m2)
+
+```
+### Based on Chi-square (0.2492>0.05) two models are statistically the same.
+### Let's include price variable as numeric instead of treating it as factor:
+```{r}
+m3 <- mlogit(choice ~   0+ size +shp + flav +as.numeric(price) , data = yogurt.mlogit)
+summary(m3)
+lrtest(m1, m3)
+```
+### Again, no statistical difference between model 1 and model 3. So, from the output above we can get the answer of some marketing questions:
+- On average, consumers prefer Yogurts with size 5 oz over 6 and 8 oz ( if we hold other attributes the same)
+- Square shapes are less attractive compared to circle shapes 
+- Flavor of peach and vanilla are more preferable than flavor of cherry
+- And , obviously, people like lower prices 
+
+### However, instead of observing only directions of indicators  we can compute the average willingness-to-pay for a particular level of an attribute by dividing the coefficient for that level by the price coefficient:
+
+```{r}
+round(coef(m3)[-6]/(-coef(m3)["as.numeric(price)"]),1)
+```
+
+# The final findings from this analysis are following:
+
+## - On average, customers would be equally divided between a yogurt with 5oz of size and yogurt with 6 oz of size that costs \$0.5 less. Another way to think of it is that $0.5 is the price at which consumers become indifferent between the two sizes. At the same time consumers become indifferent between the 5 oz and 8 oz options when the 8 oz product costs \$0.2 less.
+## - On average , customers would be equally divided based on their preferences for yogurt shape options ( circle vs square) when the product with square shape costs \$0.6 less.
+## - Consumers would be indifferent between flavor of cherry and flavor of peach if the latter costs \$1 more. At the same time, the indifference would be achieved between flavor of cherry and flavor of vanilla when yogurt with vanilla flavor costs \$2 more. 
+
