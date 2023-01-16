@@ -1,0 +1,160 @@
+---
+title: " Principal Component Analysis (demo)"
+author: "Avet Mnatsakanyan"
+date: '2020-08-24'
+output: pdf_document
+---
+# Principal Component Analysis(PCA) is dimensionality-reduction method used to reduce the dimensionality of large data sets, by transforming a large set of variables into a smaller one that still contains most of the information in the large set
+
+
+_In this project I am going to present PCA analysis using collected data about yogurt brands and the rating of their features according to the surveyed consumers. Note I randomly assigned some of US-popular brand names to the actual data as this project has only a demonstration purpose. The real analysis(including collected data) is not about US market._ 
+
+
+ Start with importing dataset and installing necessary packages.
+
+
+
+```{r setup, include=FALSE}
+
+rm(list=ls())    # clear memory
+setwd("C:\\Users\\Avet\\Desktop\\Git\\R\\PCA_dimens_reduction") ## directory
+brand.ratings=read.table("yogurt_pca.csv",sep=",",header=TRUE)
+
+#install.packages("RColorBrewer")
+library(corrplot)
+library(gplots)
+library(RColorBrewer)
+```
+
+Use basic commands to observe imported dataset:
+
+```{r}
+head(brand.ratings)
+
+tail(brand.ratings)
+
+summary(brand.ratings)
+
+str(brand.ratings)
+```
+
+So, we have 7 numerical variables presenting the features of brands. The range of these variables is 1 to 10 which corresponds to the scores (rates) given by a consumer per each feature or brands. 
+
+Rescale the data by normalizing or standardizing to get comparable numerical variables:
+
+
+```{r}
+brand.sc <- brand.ratings
+
+brand.sc[, 1:7] <- scale(brand.ratings[, 1:7])
+
+summary(brand.sc)
+```
+
+
+Let's check the correlation between features:
+
+
+```{r}
+par(mfrow=c(1,1))
+corrplot(cor(brand.sc[, 1:7]), order="hclust")
+```
+
+
+From the `corrplot` above we can see that there are two main "clusters" of features: healthiness - freshness - quality , and trendy-packaging - flavor. Note that the "price" variable seems to have correlation only with "packaging". 
+Now, let's try to find out the average (mean) position of the brand on each feature:
+
+
+```{r}
+brand.mean <- aggregate(.~ brand, data=brand.sc, mean)
+brand.mean
+
+rownames(brand.mean) <- brand.mean[, 1] # use brand for the row names
+brand.mean <- brand.mean[, -1] # remove brand name column
+
+brand.mean
+
+```
+
+
+Tabular form of averages are not so easy to read. Let's visualize the data above using Heatmap for which green color indicates a low value and dark blue indicates a high value() lighter colors are for values in the middle of the range).
+
+
+```{r}
+heatmap.2(as.matrix(brand.mean),
+        col=brewer.pal(9, "GnBu"), trace="none", key=FALSE, dend="none",
+        main="\nBrand attributes")
+```
+
+
+
+From the heatmap above we can understand the relationship of brands and their features compared to other brands' features. We can see that the "Danon" brand has high value for being "trendy"(dark blue) while the quality and freshness are rated by consumers quite low.
+The quality and price combination of "Fage" among presented brands is the highest according to the rates of consumers. 
+For "Activia", consumers like the freshness and healthiness the most even though the flavor for this brand has the lowest rating.
+Consumers like the packaging and flavor of "Chobani" and at the same time they rated very low the price of this brand. This is interesting finding as you can see that with the"worst" price "Chobani" still is the second "trendy" brand.
+
+
+
+Now let's move on to Principal component analysis (PCA). At first, let’s look at the principal components for the brand rating data:
+
+
+```{r}
+brand.pc <- prcomp(brand.sc[, 1:7])
+
+summary(brand.pc)
+```
+
+As always, let's visualize the table to get the maximum insight:
+
+
+```{r}
+plot(brand.pc, type="l")
+
+```
+
+
+As we can see from the plot above most of the variances in our data can be captured using first 2 principal components and this will allow us to present the information with 2D figures.
+
+
+```{r}
+
+biplot(brand.pc)
+```
+
+
+The figure above shows the positions of rating adjectives when usinf first and second principal components. However, using individual rates makes the map above to dense and difficult to read. Instead of using the actual data let's do the same for averages (developed above):
+
+
+```{r}
+brand.mu.pc <- prcomp(brand.mean, scale=TRUE)
+summary(brand.mu.pc)
+plot(brand.mu.pc,type="l")
+
+```
+Note that for the aggregated data the first two principal components capture about 95 % variability of our data. In other words, we can analyze our large dataset by using only 2 dimensions(principal components) of aggregated data as they are representative enough. That is, we reduced dimensions of data to 2 while keeping the 95% information and variations of actual data.
+
+Finally, it is time to get the easy-to-interpret perceptual map:
+```{r}
+biplot(brand.mu.pc, main="Brand positioning", cex=c(1.5, 1))
+```
+
+
+The perceptual map above is the end goal of our analysis that shows the positions of brands in the market with respect to the product features using principal components. For the "Activia" and "Fage" market looks well differentiated: though both of them are rated high for quality, healthiness, and freshness , "Activia" is over-priced based on consumers' ratings. "Chobani" is the brand that is favorite among consumers by it's flavor and packaging. At the same time, brand "Danone" having similar ratings as "Chobani", seems to be priced more fairly according to consumers. 
+
+ Based on this analysis we might provide a suggestion to the market players. For example, suppose the management of "Danone" thinks that the market segment occupied by "Fage" yogurts has a good potential for their product too. That is, they would like to position "Danone" closer to "Fage" in the map above : 
+ 
+```{r}
+brand.mean["Fage", ] - brand.mean["Danone", ]
+```
+ To accomplish this market positioning , "Danone" team needs to pay more attention on Quality and Healthiness of their product while giving up some of their efforts aimed to the trendiness, packaging and flavor. 
+
+
+What if, instead of following another brand, "Danone" management team aimed for differentiated space where no brand is positioned between "Chobani" and "Fage". Assuming that the gap reflects approximately the average of those two brands we can calculate the differences of average values of competitors and their values to get the numeric indicators. These indicators will show which features need to be prioritized to achieve the desired result:
+
+
+```{r}
+colMeans(brand.mean[c("Chobani",  "Fage"), ]) - brand.mean["Danon", ]
+```
+
+
+ From the positive values in table above we can conclude that "Danone" can achieve better differentiation by improving healthiness, quality and freshness of their yogurts. 
